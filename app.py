@@ -7,6 +7,7 @@ import pandas as pd
 import pickle
 import joblib
 
+import math
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -22,8 +23,8 @@ st.set_page_config(page_title="WILL THE INCOME BE MORE THAN 50K DOLLARS?",
 
 #model = joblib.load('XG_Boost_job.joblib')
 
-model = xgb.XGBClassifier()
-model.load_model("model_sklearn.json")
+model = xgb.Booster()
+model.load_model("model.json")
 
 
 # ['age','workclass','fnlwgt','education','education_num','marital_status','occupation','relationship','race','sex','capital_gain','capital_loss','hours_per_week',	'native_country']
@@ -48,7 +49,7 @@ opt_relationship =[' Not-in-family', ' Husband', ' Wife', ' Own-child', ' Unmarr
 opt_race = [' White', ' Black', ' Asian-Pac-Islander', ' Amer-Indian-Eskimo',
        ' Other']
 opt_sex =[' Male', ' Female']
-opt_native_country = [' United-States', ' Cuba', ' Jamaica', ' India', ' ?', ' Mexico',
+opt_native_country = [' United-States', ' Cuba', ' Jamaica', ' India', ' Mexico',
        ' South', ' Puerto-Rico', ' Honduras', ' England', ' Canada',
        ' Germany', ' Iran', ' Philippines', ' Italy', ' Poland',
        ' Columbia', ' Cambodia', ' Thailand', ' Ecuador', ' Laos',
@@ -74,18 +75,23 @@ def main():
         st.subheader("Pleas enter the following inputs:")
         education = st.selectbox("Level of education?:", options=opt_education)
         workclass = st.selectbox("Level of education?:", options=opt_workclass)
-        marital_status = st.selectbox("Level of education?:", options=opt_marital_status)
-        occupation = st.selectbox("marital_status?:", options=opt_occupation)
+        marital_status = st.selectbox("Marital Status?:", options=opt_marital_status)
+        occupation = st.selectbox("OCCUPATION?:", options=opt_occupation)
         relationship = st.selectbox("RELATIONSHIP?:", options=opt_relationship)
         race = st.selectbox("RACE?:", options=opt_race)
         sex = st.selectbox("SEX?:", options=opt_sex)
         native_country = st.selectbox("Native_country?:", options=opt_native_country)
-        fnlwgt = st.number_input("Enter fnlwgt:")
-        capital_gain = st.number_input("Enter capital gain:",0,99999)
-        age = st.number_input("Enter age:",0,100)
         education_num = st.selectbox("Number code of education?:", options=opt_education_num)
+        
+        fnlwgt = st.number_input("Enter fnlwgt:")
+        fnlwgt = math.log1p(fnlwgt)
+        capital_gain = st.number_input("Enter capital gain:",0,99999)
+        capital_gain = math.log1p(capital_gain)
+        age = st.number_input("Enter age:",0,100)
         capital_loss = st.number_input("Enter capital loss:",0,99999)
+        capital_loss = math.log1p(capital_loss)
         hours_per_week = st.slider("Number of working hours per week:",1,100, value=0, format="%d")
+        hours_per_week = math.log1p(hours_per_week)
         
            
         submit = st.form_submit_button("Predict")
@@ -97,18 +103,18 @@ def main():
         full_processor = ColumnTransformer(transformers=[("numeric", numeric_pipeline, num_cols),
                                                             ("categorical", categorical_pipeline, cat_cols)])
         
-        input_array = np.array([age,workclass,fnlwgt,education,
+        input_array = pd.DataFrame(data = np.array([age,workclass,fnlwgt,education,
                                 education_num,marital_status,occupation,relationship,
-                                race,sex,capital_gain,capital_loss,hours_per_week,native_country], ndmin=2)
+                                race,sex,capital_gain,capital_loss,hours_per_week,native_country], ndmin=2), columns = columns)
         
         X_processed_test = full_processor.fit_transform(input_array) 
         # Make predictions on the test data
-        y_pred = model.predict(X_processed_test)
+        y_pred = model.predict(xgb.DMatrix(X_processed_test))
         
         
-        if y_pred[0] == 0:
+        if y_pred[0] < 0.5:
             st.write(f"The expected salary is less than 50000 dollars annualy")
-        elif y_pred[0] == 1:
+        elif y_pred[0] >= 0.5:
             st.write(f"The expected salary is more than 50000 dollars annualy")
             
         st.write("Developed By: Akash kumar Rakshit")
